@@ -1,464 +1,233 @@
-import { useEffect, useState } from "react";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../api/auth";
 
-import {
-  createInstrument,
-  getInstruments,
-  type CreateInstrumentInput,
-  type Instrument,
-} from "../api/instruments";
+export default function Login() {
+  const navigate = useNavigate();
 
-const emptyForm: CreateInstrumentInput = {
-  instrumentName: "",
-  instrumentType: "Non-Automatic Weighing Instrument",
-  manufacturer: "",
-  modelNumber: "",
-  serialNumber: "",
-  capacity: 0,
-  capacityUnit: "kg",
-  scaleInterval: 0,
-  scaleIntervalUnit: "kg",
-  accuracyClass: "III",
-  numberOfVerificationScaleIntervals: undefined,
-  lab: "",
-  yearOfManufacture: undefined,
-  application: "",
-};
-
-export default function Instruments() {
-  const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [formError, setFormError] = useState("");
 
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<CreateInstrumentInput>(emptyForm);
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-  async function loadInstruments() {
+    setError("");
+
+    if (!email.trim() || !password) {
+      setError("Please enter your email address and password.");
+      return;
+    }
+
     try {
       setLoading(true);
-      setError("");
 
-      const data = await getInstruments();
+      const response = await login(email.trim(), password);
 
-      setInstruments(data);
+      if (!response.success || !response.data?.token) {
+        throw new Error(response.message || "Unable to sign in.");
+      }
+
+      localStorage.setItem("metro_r76_token", response.data.token);
+
+      localStorage.setItem(
+        "metro_r76_user",
+        JSON.stringify(response.data.user),
+      );
+
+      navigate("/", { replace: true });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Unable to load instruments.",
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in. Please try again.",
       );
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadInstruments();
-  }, []);
-
-  function updateField(field: keyof CreateInstrumentInput, value: string) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  function closeForm() {
-    if (saving) return;
-
-    setShowForm(false);
-    setForm(emptyForm);
-    setFormError("");
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setFormError("");
-
-    if (
-      !form.instrumentName.trim() ||
-      !form.modelNumber.trim() ||
-      !form.serialNumber.trim() ||
-      !form.manufacturer.trim() ||
-      !form.lab.trim()
-    ) {
-      setFormError("Please complete all required fields.");
-      return;
-    }
-
-    if (form.capacity <= 0) {
-      setFormError("Capacity must be greater than zero.");
-      return;
-    }
-
-    if (form.scaleInterval <= 0) {
-      setFormError("Scale interval must be greater than zero.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      await createInstrument({
-        ...form,
-        instrumentName: form.instrumentName.trim(),
-        modelNumber: form.modelNumber.trim(),
-        serialNumber: form.serialNumber.trim(),
-      });
-
-      closeForm();
-
-      await loadInstruments();
-    } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : "Unable to create instrument.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1>Instruments</h1>
-          <p>Registered non-automatic weighing instruments</p>
-        </div>
+    <div className="login-page">
+      <div className="login-background-grid" />
 
-        <button
-          className="primary-button"
-          onClick={() => {
-            setForm(emptyForm);
-            setFormError("");
-            setShowForm(true);
-          }}
-        >
-          + Add Instrument
-        </button>
-      </div>
+      <div className="login-container">
+        {/* LEFT BRAND PANEL */}
+        <section className="login-brand-panel">
+          <div className="login-brand-top">
+            <div className="metro-logo">
+              <div className="metro-logo-mark">M</div>
 
-      {showForm && (
-        <section className="panel form-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Add Instrument</h2>
-              <p>Register an instrument for OIML R76 testing.</p>
+              <div>
+                <div className="metro-logo-title">METRO-R76</div>
+
+                <div className="metro-logo-subtitle">LEGAL METROLOGY</div>
+              </div>
             </div>
 
-            <button
-              className="secondary-button"
-              onClick={closeForm}
-              type="button"
-            >
-              Cancel
-            </button>
+            <div className="standard-badge">OIML R76</div>
           </div>
 
-          {formError && <div className="form-error">{formError}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid">
-              <div className="form-field">
-                <label>Instrument Name *</label>
-                <input
-                  value={form.instrumentName}
-                  onChange={(event) =>
-                    updateField("instrumentName", event.target.value)
-                  }
-                  placeholder="Electronic Platform Weighing Scale"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Instrument Type *</label>
-                <input
-                  value={form.instrumentType}
-                  onChange={(event) =>
-                    updateField("instrumentType", event.target.value)
-                  }
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Manufacturer ID *</label>
-                <input
-                  value={form.manufacturer}
-                  onChange={(event) =>
-                    updateField("manufacturer", event.target.value)
-                  }
-                  placeholder="MongoDB manufacturer ID"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Laboratory ID *</label>
-                <input
-                  value={form.lab}
-                  onChange={(event) => updateField("lab", event.target.value)}
-                  placeholder="MongoDB laboratory ID"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Model Number *</label>
-                <input
-                  value={form.modelNumber}
-                  onChange={(event) =>
-                    updateField("modelNumber", event.target.value)
-                  }
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Serial Number *</label>
-                <input
-                  value={form.serialNumber}
-                  onChange={(event) =>
-                    updateField("serialNumber", event.target.value)
-                  }
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Capacity *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={form.capacity === 0 ? "" : form.capacity}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      capacity: Number(event.target.value),
-                    }))
-                  }
-                  placeholder="1000"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Capacity Unit *</label>
-                <select
-                  value={form.capacityUnit}
-                  onChange={(event) =>
-                    updateField("capacityUnit", event.target.value)
-                  }
-                >
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="t">t</option>
-                </select>
-              </div>
-
-              <div className="form-field">
-                <label>Scale Interval (e) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={form.scaleInterval === 0 ? "" : form.scaleInterval}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      scaleInterval: Number(event.target.value),
-                    }))
-                  }
-                  placeholder="0.5"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Scale Interval Unit *</label>
-                <select
-                  value={form.scaleIntervalUnit}
-                  onChange={(event) =>
-                    updateField("scaleIntervalUnit", event.target.value)
-                  }
-                >
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="t">t</option>
-                </select>
-              </div>
-
-              <div className="form-field">
-                <label>Accuracy Class</label>
-                <select
-                  value={form.accuracyClass}
-                  onChange={(event) =>
-                    updateField("accuracyClass", event.target.value)
-                  }
-                >
-                  <option value="I">I</option>
-                  <option value="II">II</option>
-                  <option value="III">III</option>
-                  <option value="IIII">IIII</option>
-                </select>
-              </div>
-
-              <div className="form-field">
-                <label>Verification Scale Intervals</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.numberOfVerificationScaleIntervals ?? ""}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      numberOfVerificationScaleIntervals: event.target.value
-                        ? Number(event.target.value)
-                        : undefined,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Year of Manufacture</label>
-                <input
-                  type="number"
-                  min="1900"
-                  max={new Date().getFullYear()}
-                  value={form.yearOfManufacture ?? ""}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      yearOfManufacture: event.target.value
-                        ? Number(event.target.value)
-                        : undefined,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="form-field form-field-wide">
-                <label>Application</label>
-                <input
-                  value={form.application ?? ""}
-                  onChange={(event) =>
-                    updateField("application", event.target.value)
-                  }
-                  placeholder="Trade, industrial, commercial..."
-                />
-              </div>
+          <div className="login-brand-content">
+            <div className="brand-kicker">
+              NON-AUTOMATIC WEIGHING INSTRUMENTS
             </div>
 
-            <div className="form-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={closeForm}
-                disabled={saving}
-              >
-                Cancel
-              </button>
+            <h1>
+              Precision.
+              <br />
+              Compliance.
+              <br />
+              <span>Confidence.</span>
+            </h1>
 
-              <button
-                type="submit"
-                className="primary-button"
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Register Instrument"}
-              </button>
+            <p>
+              A centralized laboratory platform for instrument registration,
+              OIML R76 testing, observations, calculations and test report
+              management.
+            </p>
+
+            <div className="brand-features">
+              <div className="brand-feature">
+                <div className="feature-icon">01</div>
+
+                <div>
+                  <strong>Instrument Registry</strong>
+                  <span>
+                    Manage registered weighing instruments and technical
+                    specifications.
+                  </span>
+                </div>
+              </div>
+
+              <div className="brand-feature">
+                <div className="feature-icon">02</div>
+
+                <div>
+                  <strong>OIML R76 Testing</strong>
+                  <span>
+                    Perform structured metrology tests with calculation support.
+                  </span>
+                </div>
+              </div>
+
+              <div className="brand-feature">
+                <div className="feature-icon">03</div>
+
+                <div>
+                  <strong>Test Reports</strong>
+                  <span>
+                    Record observations and manage laboratory test reports.
+                  </span>
+                </div>
+              </div>
             </div>
-          </form>
-        </section>
-      )}
+          </div>
 
-      {loading && (
-        <section className="panel">
-          <div className="empty-state">
-            <div className="empty-icon">◌</div>
-            <h3>Loading instruments...</h3>
-            <p>Fetching registered instruments from the laboratory system.</p>
+          <div className="login-brand-footer">
+            <span>METRO-R76</span>
+            <span>•</span>
+            <span>LEGAL METROLOGY LABORATORY SYSTEM</span>
           </div>
         </section>
-      )}
 
-      {error && !loading && (
-        <section className="panel">
-          <div className="empty-state">
-            <div className="empty-icon">!</div>
-            <h3>Unable to load instruments</h3>
-            <p>{error}</p>
+        {/* RIGHT LOGIN PANEL */}
+        <section className="login-form-panel">
+          <div className="login-card">
+            <div className="login-card-header">
+              <div className="portal-label">LABORATORY PORTAL</div>
 
-            <button className="primary-button" onClick={loadInstruments}>
-              Try Again
-            </button>
-          </div>
-        </section>
-      )}
+              <h2>Welcome back</h2>
 
-      {!loading && !error && (
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <h2>Instrument Registry</h2>
-              <p>
-                {instruments.length} registered instrument
-                {instruments.length === 1 ? "" : "s"}
-              </p>
+              <p>Sign in to continue to the METRO-R76 testing system.</p>
             </div>
-          </div>
 
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Instrument</th>
-                  <th>Model</th>
-                  <th>Serial Number</th>
-                  <th>Capacity</th>
-                  <th>Scale Interval</th>
-                  <th>Class</th>
-                  <th>Manufacturer</th>
-                  <th>Laboratory</th>
-                </tr>
-              </thead>
+            {error && (
+              <div className="login-error">
+                <div className="login-error-icon">!</div>
 
-              <tbody>
-                {instruments.map((instrument) => (
-                  <tr key={instrument._id}>
-                    <td>
-                      <strong>{instrument.instrumentName}</strong>
+                <div>{error}</div>
+              </div>
+            )}
 
-                      <small>{instrument.instrumentType}</small>
-                    </td>
+            <form className="login-form" onSubmit={handleSubmit}>
+              <div className="login-field">
+                <label htmlFor="email">Email address</label>
 
-                    <td>{instrument.modelNumber}</td>
+                <div className="login-input-wrapper">
+                  <span className="input-icon">@</span>
 
-                    <td className="report-number">{instrument.serialNumber}</td>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="name@laboratory.gov.in"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="email"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
 
-                    <td>
-                      {instrument.capacity} {instrument.capacityUnit}
-                    </td>
+              <div className="login-field">
+                <div className="password-label-row">
+                  <label htmlFor="password">Password</label>
+                </div>
 
-                    <td>
-                      {instrument.scaleInterval} {instrument.scaleIntervalUnit}
-                    </td>
+                <div className="login-input-wrapper">
+                  <span className="input-icon">•••</span>
 
-                    <td>{instrument.accuracyClass || "—"}</td>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
 
-                    <td>{instrument.manufacturer?.name || "—"}</td>
-
-                    <td>{instrument.lab?.name || "—"}</td>
-                  </tr>
-                ))}
-
-                {instruments.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="empty-table">
-                      No instruments registered yet.
-                    </td>
-                  </tr>
+              <button type="submit" className="login-submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <span className="login-spinner" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign in
+                    <span className="login-arrow">→</span>
+                  </>
                 )}
-              </tbody>
-            </table>
+              </button>
+            </form>
+
+            <div className="login-divider">
+              <span />
+              <small>AUTHORIZED ACCESS</small>
+              <span />
+            </div>
+
+            <div className="login-register">
+              <span>New to METRO-R76?</span>
+
+              <Link to="/register">
+                Create an account
+                <span>→</span>
+              </Link>
+            </div>
+
+            <div className="login-security">
+              <span className="security-lock">✓</span>
+
+              <span>Secure authenticated laboratory access</span>
+            </div>
           </div>
         </section>
-      )}
+      </div>
     </div>
   );
 }
