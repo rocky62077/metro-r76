@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDashboard, type DashboardData } from "../api/dashboard";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -57,11 +58,33 @@ export default function Dashboard() {
   if (error) {
     return (
       <div>
-        <div className="page-header">
+        <div
+          className="page-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <div>
             <h1>Dashboard</h1>
             <p>OIML R76 Testing & Compliance Overview</p>
           </div>
+
+          {/* THIS IS THE NEW BUTTON */}
+          <Link
+            to="/test-reports/new"
+            style={{
+              padding: "10px 20px",
+              background: "#0056b3",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontWeight: "bold",
+            }}
+          >
+            + New Test Report
+          </Link>
         </div>
 
         <section className="panel">
